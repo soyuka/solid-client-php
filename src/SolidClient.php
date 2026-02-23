@@ -96,6 +96,13 @@ final class SolidClient
         return $this->request('PATCH', $url, $options);
     }
 
+    public function getResourceMetadata(string $url, array $options = []): ResourceMetadata
+    {
+        $response = $this->head($url, $options);
+
+        return ResourceMetadata::fromResponseHeaders($response->getHeaders(false));
+    }
+
     public function request(string $method, string $url, array $options = []): ResponseInterface
     {
         if ($accessToken = $this->oidcClient?->getAccessToken()) {
