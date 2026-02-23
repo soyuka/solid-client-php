@@ -168,6 +168,30 @@ final class SolidClient
         $this->put($url, null, true, $options);
     }
 
+    /**
+     * Recursively walks an LDP container tree, yielding ContainerEntry objects.
+     *
+     * @param int $maxDepth -1 for unlimited, 0 for current level only
+     *
+     * @return \Generator<int, ContainerEntry>
+     */
+    public function walkContainer(string $url, int $maxDepth = -1, array $options = []): \Generator
+    {
+        $entries = $this->getContainerContents($url, $options);
+
+        foreach ($entries as $entry) {
+            yield $entry;
+
+            if ($entry->isContainer && 0 !== $maxDepth) {
+                yield from $this->walkContainer(
+                    $entry->url,
+                    -1 === $maxDepth ? -1 : $maxDepth - 1,
+                    $options,
+                );
+            }
+        }
+    }
+
     private static function getParentContainerUrl(string $url): ?string
     {
         $trimmed = rtrim($url, '/');

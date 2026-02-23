@@ -139,4 +139,73 @@ class ContainerOperationsTest extends TestCase
         $this->assertContains('PUT', $methods);
     }
 
+    public function testWalkContainer(): void
+    {
+        $rootJson = json_encode([
+            '@id' => 'http://pod.example/root/',
+            '@type' => ['http://www.w3.org/ns/ldp#BasicContainer'],
+            'http://www.w3.org/ns/ldp#contains' => [
+                ['@id' => 'http://pod.example/root/file.txt'],
+                ['@id' => 'http://pod.example/root/sub/', '@type' => ['http://www.w3.org/ns/ldp#BasicContainer']],
+            ],
+        ]);
+
+        $subJson = json_encode([
+            '@id' => 'http://pod.example/root/sub/',
+            '@type' => ['http://www.w3.org/ns/ldp#BasicContainer'],
+            'http://www.w3.org/ns/ldp#contains' => [
+                ['@id' => 'http://pod.example/root/sub/nested.ttl'],
+            ],
+        ]);
+
+        $httpClient = new MockHttpClient(static function (string $method, string $url) use ($rootJson, $subJson): MockResponse {
+            if ('http://pod.example/root/' === $url) {
+                return new MockResponse($rootJson, [
+                    'http_code' => 200,
+                    'response_headers' => ['Content-Type' => 'application/ld+json'],
+                ]);
+            }
+            if ('http://pod.example/root/sub/' === $url) {
+                return new MockResponse($subJson, [
+                    'http_code' => 200,
+                    'response_headers' => ['Content-Type' => 'application/ld+json'],
+                ]);
+            }
+
+            return new MockResponse('', ['http_code' => 404]);
+        });
+        $client = new SolidClient($httpClient);
+
+        $entries = iterator_to_array($client->walkContainer('http://pod.example/root/'), false);
+
+        $this->assertCount(3, $entries);
+        $this->assertSame('http://pod.example/root/file.txt', $entries[0]->url);
+        $this->assertSame('http://pod.example/root/sub/', $entries[1]->url);
+        $this->assertSame('http://pod.example/root/sub/nested.ttl', $entries[2]->url);
+    }
+
+    public function testWalkContainerWithMaxDepth(): void
+    {
+        $rootJson = json_encode([
+            '@id' => 'http://pod.example/root/',
+            '@type' => ['http://www.w3.org/ns/ldp#BasicContainer'],
+            'http://www.w3.org/ns/ldp#contains' => [
+                ['@id' => 'http://pod.example/root/sub/', '@type' => ['http://www.w3.org/ns/ldp#BasicContainer']],
+            ],
+        ]);
+
+        $httpClient = new MockHttpClient(static function (string $method, string $url) use ($rootJson): MockResponse {
+            return new MockResponse($rootJson, [
+                'http_code' => 200,
+                'response_headers' => ['Content-Type' => 'application/ld+json'],
+            ]);
+        });
+        $client = new SolidClient($httpClient);
+
+        $entries = iterator_to_array($client->walkContainer('http://pod.example/root/', 0), false);
+
+        // maxDepth=0 should only return root level entries, no recursion
+        $this->assertCount(1, $entries);
+        $this->assertSame('http://pod.example/root/sub/', $entries[0]->url);
+    }
 }
