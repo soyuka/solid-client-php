@@ -11,7 +11,9 @@ declare(strict_types=1);
 
 namespace Dunglas\PhpSolidClient;
 
+use Dunglas\PhpSolidClient\Wac\AclDocument;
 use EasyRdf\Graph;
+use ML\IRI\IRI;
 use ML\JsonLD\JsonLD;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -206,6 +208,36 @@ final class SolidClient
         }
 
         return $parent;
+    }
+
+    /**
+     * Fetches and parses the ACL document for a resource.
+     *
+     * Discovers the .acl URL via the Link header (rel="acl") from a HEAD request.
+     */
+    public function getAcl(string $resourceUrl, array $options = []): AclDocument
+    {
+        $metadata = $this->getResourceMetadata($resourceUrl, $options);
+        if (null === $metadata->aclUrl) {
+            throw new Exception(\sprintf('No ACL URL found for resource "%s"', $resourceUrl));
+        }
+
+        $aclUrl = (string) (new IRI($resourceUrl))->resolve($metadata->aclUrl);
+        $response = $this->get($aclUrl, array_merge($options, [
+            'headers' => ['Accept' => 'text/turtle'],
+        ]));
+
+        return AclDocument::fromTurtle($response->getContent(), $aclUrl, $resourceUrl);
+    }
+
+    /**
+     * Writes an ACL document for a resource.
+     */
+    public function putAcl(string $resourceUrl, AclDocument $acl, array $options = []): ResponseInterface
+    {
+        return $this->put($acl->aclUrl, $acl->toTurtle(), false, array_merge($options, [
+            'headers' => ['Content-Type' => 'text/turtle'],
+        ]));
     }
 
     public function request(string $method, string $url, array $options = []): ResponseInterface
