@@ -58,9 +58,42 @@ final class SolidClient
         return $this->request('POST', $url, $options);
     }
 
+    public function put(string $url, ?string $data = null, bool $isContainer = false, array $options = []): ResponseInterface
+    {
+        if (!isset($options['headers']['Content-Type'])) {
+            $options['headers']['Content-Type'] = self::DEFAULT_MIME_TYPE;
+        }
+        if (null !== $data) {
+            $options['body'] = $data;
+        }
+        if ($isContainer) {
+            $options['headers']['Link'] = \sprintf('<%s>; rel="type"', self::LDP_BASIC_CONTAINER);
+        }
+
+        return $this->request('PUT', $url, $options);
+    }
+
     public function get(string $url, array $options = []): ResponseInterface
     {
         return $this->request('GET', $url, $options);
+    }
+
+    public function head(string $url, array $options = []): ResponseInterface
+    {
+        return $this->request('HEAD', $url, $options);
+    }
+
+    public function delete(string $url, array $options = []): ResponseInterface
+    {
+        return $this->request('DELETE', $url, $options);
+    }
+
+    public function patch(string $url, string $data, string $contentType = 'application/sparql-update', array $options = []): ResponseInterface
+    {
+        $options['headers']['Content-Type'] = $contentType;
+        $options['body'] = $data;
+
+        return $this->request('PATCH', $url, $options);
     }
 
     public function request(string $method, string $url, array $options = []): ResponseInterface
