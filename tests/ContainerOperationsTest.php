@@ -98,4 +98,45 @@ class ContainerOperationsTest extends TestCase
         $this->assertSame('http://pod.example/data/file.txt', $entries[0]->url);
         $this->assertSame('http://pod.example/data/sub/', $entries[1]->url);
     }
+
+    public function testEnsureContainerExistsAlreadyExists(): void
+    {
+        $responses = [
+            new MockResponse('', ['http_code' => 200]),
+        ];
+        $httpClient = new MockHttpClient($responses);
+        $client = new SolidClient($httpClient);
+
+        $client->ensureContainerExists('http://pod.example/existing/');
+
+        // Only one HEAD request should have been made
+        $this->assertSame(1, $httpClient->getRequestsCount());
+    }
+
+    public function testEnsureContainerExistsCreates(): void
+    {
+        $requests = [];
+        $httpClient = new MockHttpClient(static function (string $method, string $url) use (&$requests): MockResponse {
+            $requests[] = [$method, $url];
+            if ('HEAD' === $method && 'http://pod.example/parent/' === $url) {
+                return new MockResponse('', ['http_code' => 200]);
+            }
+            if ('HEAD' === $method) {
+                return new MockResponse('', ['http_code' => 404]);
+            }
+            if ('PUT' === $method) {
+                return new MockResponse('', ['http_code' => 201]);
+            }
+
+            return new MockResponse('', ['http_code' => 500]);
+        });
+        $client = new SolidClient($httpClient);
+
+        $client->ensureContainerExists('http://pod.example/parent/child/');
+
+        // Should have HEAD child/ (404), HEAD parent/ (200), then PUT child/
+        $methods = array_column($requests, 0);
+        $this->assertContains('PUT', $methods);
+    }
+
 }

@@ -13,6 +13,7 @@ namespace Dunglas\PhpSolidClient;
 
 use EasyRdf\Graph;
 use ML\JsonLD\JsonLD;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
@@ -137,6 +138,50 @@ final class SolidClient
         }
 
         return $entries;
+    }
+
+    /**
+     * Ensures that an LDP container exists at the given URL, creating it (and any missing parents) if necessary.
+     */
+    public function ensureContainerExists(string $url, array $options = []): void
+    {
+        if (!str_ends_with($url, '/')) {
+            $url .= '/';
+        }
+
+        try {
+            $this->head($url, $options)->getHeaders();
+
+            return;
+        } catch (ClientExceptionInterface $e) {
+            if (404 !== $e->getResponse()->getStatusCode()) {
+                throw $e;
+            }
+        }
+
+        // Ensure parent exists first
+        $parentUrl = self::getParentContainerUrl($url);
+        if (null !== $parentUrl && $parentUrl !== $url) {
+            $this->ensureContainerExists($parentUrl, $options);
+        }
+
+        $this->put($url, null, true, $options);
+    }
+
+    private static function getParentContainerUrl(string $url): ?string
+    {
+        $trimmed = rtrim($url, '/');
+        $lastSlash = strrpos($trimmed, '/');
+        if (false === $lastSlash) {
+            return null;
+        }
+
+        $parent = substr($trimmed, 0, $lastSlash + 1);
+        if (preg_match('#^https?://[^/]+/$#', $parent)) {
+            return null;
+        }
+
+        return $parent;
     }
 
     public function request(string $method, string $url, array $options = []): ResponseInterface
