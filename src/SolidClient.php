@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Dunglas\PhpSolidClient;
 
 use EasyRdf\Graph;
+use ML\JsonLD\JsonLD;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
@@ -101,6 +102,41 @@ final class SolidClient
         $response = $this->head($url, $options);
 
         return ResourceMetadata::fromResponseHeaders($response->getHeaders(false));
+    }
+
+    /**
+     * Lists the contents of an LDP container by parsing ldp:contains from JSON-LD.
+     *
+     * @return list<ContainerEntry>
+     */
+    public function getContainerContents(string $url, array $options = []): array
+    {
+        $options['headers']['Accept'] = 'application/ld+json';
+        $response = $this->get($url, $options);
+        $decoded = json_decode($response->getContent());
+        $expanded = JsonLD::expand($decoded, ['base' => $url]);
+
+        $entries = [];
+        foreach ($expanded as $node) {
+            $contains = $node->{'http://www.w3.org/ns/ldp#contains'} ?? [];
+            if ([] === $contains || !$contains) {
+                continue;
+            }
+
+            foreach ($contains as $entry) {
+                $entryUrl = $entry->{'@id'} ?? null;
+                if (null === $entryUrl) {
+                    continue;
+                }
+                $types = $entry->{'@type'} ?? [];
+                $isContainer = [] !== array_filter($types, ResourceMetadata::isContainerType(...))
+                    || str_ends_with($entryUrl, '/');
+
+                $entries[] = new ContainerEntry($entryUrl, $isContainer, $types);
+            }
+        }
+
+        return $entries;
     }
 
     public function request(string $method, string $url, array $options = []): ResponseInterface
