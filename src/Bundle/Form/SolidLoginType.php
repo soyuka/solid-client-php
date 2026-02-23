@@ -55,7 +55,7 @@ final class SolidLoginType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'constraints' => [new Callback(function (array $data, ExecutionContextInterface $context): void {
+            'constraints' => [new Callback(static function (array $data, ExecutionContextInterface $context): void {
                 $webId = $data['webid'] ?? '';
                 $op = $data['op'] ?? '';
 

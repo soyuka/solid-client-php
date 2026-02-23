@@ -31,7 +31,7 @@ final class SolidClient
     ) {
     }
 
-    public function createContainer(string $parentUrl, string $name, string $data = null): ResponseInterface
+    public function createContainer(string $parentUrl, string $name, ?string $data = null): ResponseInterface
     {
         return $this->post($parentUrl, $data, $name, true);
     }
@@ -41,7 +41,7 @@ final class SolidClient
      *
      * @see https://github.com/solid/solid-web-client/blob/main/src/client.js#L231=
      */
-    public function post(string $url, string $data = null, string $slug = null, bool $isContainer = false, array $options = []): ResponseInterface
+    public function post(string $url, ?string $data = null, ?string $slug = null, bool $isContainer = false, array $options = []): ResponseInterface
     {
         if ($isContainer || !isset($options['headers']['Content-Type'])) {
             $options['headers']['Content-Type'] = self::DEFAULT_MIME_TYPE;
@@ -53,7 +53,7 @@ final class SolidClient
             $options['headers']['Slug'] = $slug;
         }
 
-        $options['headers']['Link'] = sprintf('<%s>; rel="type"', $isContainer ? self::LDP_BASIC_CONTAINER : self::LDP_RESOURCE);
+        $options['headers']['Link'] = \sprintf('<%s>; rel="type"', $isContainer ? self::LDP_BASIC_CONTAINER : self::LDP_RESOURCE);
 
         return $this->request('POST', $url, $options);
     }
@@ -88,7 +88,7 @@ final class SolidClient
     {
         $graph = $this->getProfile($webId, $options);
 
-        $issuer = $graph->get($webId, sprintf('<%s>', self::OIDC_ISSUER))?->getUri();
+        $issuer = $graph->get($webId, \sprintf('<%s>', self::OIDC_ISSUER))?->getUri();
         if (!\is_string($issuer)) {
             throw new Exception('Unable to find the OIDC issuer associated with this WebID', 1);
         }
