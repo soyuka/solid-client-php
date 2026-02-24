@@ -20,8 +20,8 @@
     "require": {
         "php": ">=8.2",
         "jumbojett/openid-connect-php": "^0.9.10",
-        "symfony/http-client": "^7.4",
-        "symfony/web-link": "^7.4",
+        "symfony/http-client": "^7.4 || ^8.0",
+        "symfony/web-link": "^7.4 || ^8.0",
         "easyrdf/easyrdf": "^1.1",
         "ml/json-ld": "^1.2",
         "web-token/jwt-core": "^3.0",
